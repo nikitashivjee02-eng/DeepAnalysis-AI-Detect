@@ -58,7 +58,7 @@ app = Flask(__name__)
 
 
 
-app.secret_key = "ai-deepfake-detector-secret-key-2026"
+app.secret_key = os.environ.get("FLASK_SECRET_KEY")
 
 
 
@@ -94,7 +94,9 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 
 
-app.config["SESSION_COOKIE_SECURE"] = False
+app.config["SESSION_COOKIE_SECURE"] = (
+    os.environ.get("SESSION_COOKIE_SECURE", "false").lower() == "true"
+)
 
 
 
