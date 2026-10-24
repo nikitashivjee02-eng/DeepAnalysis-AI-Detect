@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { VIDEO_API_URL, authUrl } from "../../lib/api";
 
 export default function VideoDetectionPage() {
   const [file, setFile] = useState(null);
@@ -50,11 +51,16 @@ export default function VideoDetectionPage() {
 
     try {
       // Video detection
+      if (!VIDEO_API_URL) {
+        throw new Error(
+          "Video detection is currently unavailable on the Free hosting plan because the model exceeds the available memory. Please use image or audio detection for now."
+        );
+      }
       const formData = new FormData();
       formData.append("file", file);
 
       const response = await fetch(
-        "http://127.0.0.1:5000/api/video",
+        `${VIDEO_API_URL}/api/video`,
         {
           method: "POST",
           body: formData,
@@ -90,7 +96,7 @@ export default function VideoDetectionPage() {
 
       // Save history
       const historyResponse = await fetch(
-        "http://localhost:5003/api/history",
+        authUrl("/api/history"),
         {
           method: "POST",
           credentials: "include",
@@ -126,7 +132,7 @@ export default function VideoDetectionPage() {
       if (!historyResponse.ok || !historyData.success) {
         throw new Error(
           historyData.message ||
-            "Video was analyzed, but the result could not be saved."
+          "Video was analyzed, but the result could not be saved."
         );
       }
     } catch (err) {
@@ -393,19 +399,17 @@ function ResultCard({ result }) {
         </p>
 
         <div
-          className={`mx-auto mt-4 flex h-16 w-16 items-center justify-center rounded-2xl text-xl font-bold ${
-            isAI
+          className={`mx-auto mt-4 flex h-16 w-16 items-center justify-center rounded-2xl text-xl font-bold ${isAI
               ? "bg-red-500/10 text-red-400"
               : "bg-green-500/10 text-green-400"
-          }`}
+            }`}
         >
           {isAI ? "AI" : "✓"}
         </div>
 
         <h2
-          className={`mt-4 text-3xl font-bold ${
-            isAI ? "text-red-400" : "text-green-400"
-          }`}
+          className={`mt-4 text-3xl font-bold ${isAI ? "text-red-400" : "text-green-400"
+            }`}
         >
           {result.label}
         </h2>
@@ -497,11 +501,10 @@ function Probability({
 
   return (
     <div
-      className={`rounded-2xl p-5 ${
-        ai
+      className={`rounded-2xl p-5 ${ai
           ? "border border-red-500/15 bg-red-500/[0.04]"
           : "border border-green-500/15 bg-green-500/[0.04]"
-      }`}
+        }`}
     >
 
       <div className="flex items-center justify-between">
@@ -511,9 +514,8 @@ function Probability({
         </span>
 
         <span
-          className={`font-bold ${
-            ai ? "text-red-400" : "text-green-400"
-          }`}
+          className={`font-bold ${ai ? "text-red-400" : "text-green-400"
+            }`}
         >
           {value.toFixed(2)}%
         </span>
@@ -523,9 +525,8 @@ function Probability({
       <div className="mt-4 h-2 rounded-full bg-white/5">
 
         <div
-          className={`h-full rounded-full ${
-            ai ? "bg-red-500" : "bg-green-500"
-          }`}
+          className={`h-full rounded-full ${ai ? "bg-red-500" : "bg-green-500"
+            }`}
           style={{ width: `${width}%` }}
         />
 

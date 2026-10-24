@@ -3,15 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-
-/* ============================================================
-   AUTH SERVER
-============================================================ */
-
-const authUrl = (path) => {
-  return `http://localhost:5003${path}`;
-};
-
+import { authUrl } from "../../lib/api";
 
 /* ============================================================
    DASHBOARD PAGE

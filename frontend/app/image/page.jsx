@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { IMAGE_API_URL, authUrl } from "../../lib/api";
 
 export default function ImageDetectionPage() {
   const [file, setFile] = useState(null);
@@ -52,7 +53,7 @@ export default function ImageDetectionPage() {
       formData.append("image", file);
 
       const response = await fetch(
-        "http://127.0.0.1:5002/api/image",
+        `${IMAGE_API_URL}/api/image`,
         {
           method: "POST",
           body: formData,
@@ -104,7 +105,7 @@ export default function ImageDetectionPage() {
       /* SAVE HISTORY */
       try {
         const historyResponse = await fetch(
-          "http://localhost:5003/api/history",
+          authUrl("/api/history"),
           {
             method: "POST",
             credentials: "include",

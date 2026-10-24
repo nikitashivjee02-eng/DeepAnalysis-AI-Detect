@@ -1,7 +1,9 @@
+
 "use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { AUDIO_API_URL, authUrl } from "../../lib/api";
 
 export default function AudioDetectionPage() {
   const [file, setFile] = useState(null);
@@ -26,6 +28,7 @@ export default function AudioDetectionPage() {
 
     if (!valid) {
       setError("Please select a valid audio file.");
+      e.target.value = "";
       return;
     }
 
@@ -67,7 +70,7 @@ export default function AudioDetectionPage() {
     setResult(null);
 
     try {
-      // Audio detection
+      // Send the selected file to the audio detector.
       const formData = new FormData();
       formData.append("file", file, file.name);
 
@@ -75,16 +78,16 @@ export default function AudioDetectionPage() {
 
       try {
         response = await fetch(
-          "http://127.0.0.1:5001/api/audio",
+          `${AUDIO_API_URL}/api/audio`,
           {
             method: "POST",
             body: formData,
             mode: "cors",
           }
         );
-      } catch {
+      } catch (err) {
         throw new Error(
-          "Cannot connect to the Audio Detection Server on port 5001. Make sure the Flask audio server is running."
+          "Cannot connect to the audio detection service. Please try again."
         );
       }
 
@@ -109,6 +112,7 @@ export default function AudioDetectionPage() {
       if (!response.ok || !data.success) {
         throw new Error(
           data.error ||
+            data.message ||
             `Audio detection failed. HTTP status: ${response.status}`
         );
       }
@@ -117,7 +121,7 @@ export default function AudioDetectionPage() {
 
       if (!detection) {
         throw new Error(
-          "Invalid response from audio detection server."
+          "Invalid response from the audio detection server."
         );
       }
 
@@ -139,61 +143,66 @@ export default function AudioDetectionPage() {
         aiProbability,
       });
 
-      // Save history
-      const host =
-        typeof window !== "undefined"
-          ? window.location.hostname
-          : "127.0.0.1";
-
-      const historyResponse = await fetch(
-        `http://${host}:5003/api/history`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            filename: file.name,
-            detection_type: "audio",
-            prediction: label,
-            confidence,
-            real_probability: realProbability,
-            ai_probability: aiProbability,
-          }),
-        }
-      );
-
-      const historyText = await historyResponse.text();
-
-      if (!historyText.trim()) {
-        throw new Error(
-          "History server returned an empty response."
-        );
-      }
-
-      let historyData;
-
+      // Save the detection result in the user's history.
       try {
-        historyData = JSON.parse(historyText);
-      } catch {
-        throw new Error(
-          `History server returned an invalid response. HTTP status: ${historyResponse.status}`
+        const historyResponse = await fetch(
+          authUrl("/api/history"),
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify({
+              filename: file.name,
+              detection_type: "audio",
+              prediction: label,
+              confidence,
+              real_probability: realProbability,
+              ai_probability: aiProbability,
+            }),
+          }
         );
-      }
 
-      if (!historyResponse.ok || !historyData.success) {
-        throw new Error(
-          historyData.message ||
-            historyData.error ||
-            `Audio history could not be saved. HTTP status: ${historyResponse.status}`
+        const historyText = await historyResponse.text();
+
+        if (!historyText.trim()) {
+          throw new Error(
+            "History server returned an empty response."
+          );
+        }
+
+        let historyData;
+
+        try {
+          historyData = JSON.parse(historyText);
+        } catch {
+          throw new Error(
+            `History server returned an invalid response. HTTP status: ${historyResponse.status}`
+          );
+        }
+
+        if (!historyResponse.ok || !historyData.success) {
+          throw new Error(
+            historyData.message ||
+              historyData.error ||
+              `Audio history could not be saved. HTTP status: ${historyResponse.status}`
+          );
+        }
+      } catch (historyError) {
+        // Keep the real detection result visible even if
+        // saving history fails.
+        console.error(
+          "Audio detection succeeded, but history could not be saved:",
+          historyError
+        );
+
+        setError(
+          "Audio detection completed, but the result could not be saved to history. Please check your login and history service."
         );
       }
     } catch (err) {
-      console.error(
-        "Audio detection/history error:",
-        err
-      );
+      console.error("Audio detection error:", err);
 
       setError(
         err instanceof Error
@@ -207,12 +216,9 @@ export default function AudioDetectionPage() {
 
   return (
     <main className="min-h-screen bg-[#060914] text-white">
-
       {/* Navbar */}
       <nav className="border-b border-white/10 bg-[#060914]/80 backdrop-blur-xl">
-
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-
           <Link
             href="/"
             className="flex items-center gap-3"
@@ -239,17 +245,13 @@ export default function AudioDetectionPage() {
           >
             ← Dashboard
           </Link>
-
         </div>
-
       </nav>
 
       {/* Main */}
       <section className="mx-auto max-w-6xl px-6 py-10 lg:py-14">
-
         {/* Header */}
         <div className="text-center">
-
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-500/10 text-3xl">
             🎧
           </div>
@@ -269,22 +271,17 @@ export default function AudioDetectionPage() {
             Upload an audio file and DeepAnalysis will analyze
             whether the content is real or AI-generated.
           </p>
-
         </div>
 
         {/* Upload Card */}
         <div className="mx-auto mt-10 max-w-5xl rounded-3xl border border-white/10 bg-white/[0.035] p-5 backdrop-blur-xl sm:p-8">
-
           {!file ? (
             <UploadBox onChange={handleFileChange} />
           ) : (
             <div>
-
               {/* Preview */}
               <div className="rounded-2xl border border-white/10 bg-[#090d1a] p-6 sm:p-8">
-
                 <div className="flex flex-col items-center">
-
                   <div className="flex h-24 w-24 items-center justify-center rounded-full bg-blue-500/10 text-5xl">
                     🎧
                   </div>
@@ -302,22 +299,17 @@ export default function AudioDetectionPage() {
                     controls
                     className="mt-7 w-full max-w-2xl"
                   />
-
                 </div>
-
               </div>
 
               {/* File Info */}
               <div className="mt-4 flex flex-col justify-between gap-4 rounded-2xl border border-white/10 bg-black/20 p-4 sm:flex-row sm:items-center">
-
                 <div className="flex min-w-0 items-center gap-3">
-
                   <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/10">
                     🎵
                   </div>
 
                   <div className="min-w-0">
-
                     <p className="truncate text-sm font-semibold">
                       {file.name}
                     </p>
@@ -327,23 +319,22 @@ export default function AudioDetectionPage() {
                       {" • "}
                       {file.type || "Audio file"}
                     </p>
-
                   </div>
-
                 </div>
 
                 <button
+                  type="button"
                   onClick={removeFile}
                   disabled={loading}
                   className="rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-400 hover:text-red-400 disabled:opacity-50"
                 >
                   Remove
                 </button>
-
               </div>
 
               {/* Analyze */}
               <button
+                type="button"
                 onClick={handleDetect}
                 disabled={loading}
                 className="mt-5 w-full rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4 font-semibold disabled:opacity-60"
@@ -352,17 +343,15 @@ export default function AudioDetectionPage() {
                   ? "Analyzing Audio..."
                   : "Analyze Audio"}
               </button>
-
             </div>
           )}
 
-          {/* Error */}
+          {/* Error or history warning */}
           {error && (
             <div className="mt-5 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-4 text-sm text-red-300">
               ⚠ {error}
             </div>
           )}
-
         </div>
 
         {/* Result */}
@@ -370,7 +359,6 @@ export default function AudioDetectionPage() {
 
         {/* Information */}
         <div className="mx-auto mt-8 grid max-w-5xl gap-4 md:grid-cols-3">
-
           <InfoCard
             icon="⚡"
             title="Audio Analysis"
@@ -388,21 +376,17 @@ export default function AudioDetectionPage() {
             title="Detailed Result"
             text="Compare real and AI probabilities after analysis."
           />
-
         </div>
-
       </section>
 
       <footer className="border-t border-white/10 py-7 text-center text-sm text-slate-600">
         © 2026 DeepAnalysis · AI Content Detection System
       </footer>
-
     </main>
   );
 }
 
 /* Logo */
-
 function Logo() {
   return (
     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 text-lg font-black">
@@ -412,11 +396,9 @@ function Logo() {
 }
 
 /* Upload */
-
 function UploadBox({ onChange }) {
   return (
     <label className="group flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-white/10 bg-black/10 px-6 py-16 hover:border-blue-500/50">
-
       <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-blue-500/10 text-4xl">
         🎵
       </div>
@@ -435,7 +417,7 @@ function UploadBox({ onChange }) {
       </span>
 
       <p className="mt-4 text-xs text-slate-600">
-        MP3 • WAV • M4A • FLAC • OGG • AAC
+        MP3 • WAV • M4A • FLAC • OGG • AAC • WEBM
       </p>
 
       <input
@@ -444,21 +426,17 @@ function UploadBox({ onChange }) {
         onChange={onChange}
         className="hidden"
       />
-
     </label>
   );
 }
 
 /* Result */
-
 function ResultCard({ result }) {
   const isAI = result.label.toUpperCase().includes("AI");
 
   return (
     <div className="mx-auto mt-8 max-w-5xl rounded-3xl border border-white/10 bg-white/[0.035] p-6 backdrop-blur-xl sm:p-8">
-
       <div className="text-center">
-
         <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
           Detection Result
         </p>
@@ -475,9 +453,7 @@ function ResultCard({ result }) {
 
         <h2
           className={`mt-5 text-3xl font-bold ${
-            isAI
-              ? "text-red-400"
-              : "text-emerald-400"
+            isAI ? "text-red-400" : "text-emerald-400"
           }`}
         >
           {result.label}
@@ -486,7 +462,6 @@ function ResultCard({ result }) {
         <p className="mt-2 text-sm text-slate-500">
           Analysis completed successfully
         </p>
-
       </div>
 
       <Progress
@@ -495,7 +470,6 @@ function ResultCard({ result }) {
       />
 
       <div className="mt-5 grid gap-5 md:grid-cols-2">
-
         <Probability
           title="Real Probability"
           value={result.realProbability}
@@ -507,29 +481,18 @@ function ResultCard({ result }) {
           value={result.aiProbability}
           ai
         />
-
       </div>
-
     </div>
   );
 }
 
 /* Progress */
-
-function Progress({
-  title,
-  value,
-}) {
-  const width = Math.min(
-    100,
-    Math.max(0, value)
-  );
+function Progress({ title, value }) {
+  const width = Math.min(100, Math.max(0, value));
 
   return (
     <div className="mt-9 rounded-2xl border border-white/10 bg-[#090d1a] p-5">
-
       <div className="mb-3 flex justify-between">
-
         <span className="text-sm text-slate-300">
           {title}
         </span>
@@ -537,35 +500,21 @@ function Progress({
         <span className="font-bold text-blue-400">
           {value.toFixed(2)}%
         </span>
-
       </div>
 
       <div className="h-3 rounded-full bg-white/5">
-
         <div
           className="h-full rounded-full bg-gradient-to-r from-blue-500 to-purple-500"
-          style={{
-            width: `${width}%`,
-          }}
+          style={{ width: `${width}%` }}
         />
-
       </div>
-
     </div>
   );
 }
 
 /* Probability */
-
-function Probability({
-  title,
-  value,
-  ai,
-}) {
-  const width = Math.min(
-    100,
-    Math.max(0, value)
-  );
+function Probability({ title, value, ai }) {
+  const width = Math.min(100, Math.max(0, value));
 
   return (
     <div
@@ -575,16 +524,11 @@ function Probability({
           : "border border-emerald-500/10 bg-emerald-500/[0.04]"
       }`}
     >
-
       <div className="flex items-center justify-between">
-
         <div className="flex items-center gap-3">
-
           <div
             className={`flex h-10 w-10 items-center justify-center rounded-xl ${
-              ai
-                ? "bg-red-500/10"
-                : "bg-emerald-500/10"
+              ai ? "bg-red-500/10" : "bg-emerald-500/10"
             }`}
           >
             {ai ? "AI" : "✓"}
@@ -593,50 +537,33 @@ function Probability({
           <span className="text-sm font-semibold">
             {title}
           </span>
-
         </div>
 
         <span
           className={`font-bold ${
-            ai
-              ? "text-red-400"
-              : "text-emerald-400"
+            ai ? "text-red-400" : "text-emerald-400"
           }`}
         >
           {value.toFixed(2)}%
         </span>
-
       </div>
 
       <div className="mt-5 h-2 rounded-full bg-white/5">
-
         <div
           className={`h-full rounded-full ${
-            ai
-              ? "bg-red-500"
-              : "bg-emerald-500"
+            ai ? "bg-red-500" : "bg-emerald-500"
           }`}
-          style={{
-            width: `${width}%`,
-          }}
+          style={{ width: `${width}%` }}
         />
-
       </div>
-
     </div>
   );
 }
 
 /* Info Card */
-
-function InfoCard({
-  icon,
-  title,
-  text,
-}) {
+function InfoCard({ icon, title, text }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-5">
-
       <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/10 text-xl">
         {icon}
       </div>
@@ -648,7 +575,6 @@ function InfoCard({
       <p className="mt-2 text-sm leading-6 text-slate-500">
         {text}
       </p>
-
     </div>
   );
 }

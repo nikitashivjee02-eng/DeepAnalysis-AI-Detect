@@ -3,13 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { authUrl } from "../../../lib/api";
 
-const authUrl = (path) =>
-  `http://${
-    typeof window === "undefined"
-      ? "localhost"
-      : window.location.hostname
-  }:5003${path}`;
 
 export default function HistoryPage() {
   const router = useRouter();

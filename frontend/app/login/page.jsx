@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { authUrl } from "../../lib/api";
 
 export default function LoginPage() {
 const router = useRouter();
@@ -29,9 +30,9 @@ if (!cleanEmail || !password) {
 setLoading(true);
 
 try {
-  const response = await fetch(
-    "http://localhost:5003/api/login",
-    {
+ const response = await fetch(
+  authUrl("/api/login"),
+  {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
