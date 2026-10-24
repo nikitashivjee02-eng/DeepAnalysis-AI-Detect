@@ -136,51 +136,28 @@ app.config["SESSION_COOKIE_SECURE"] = (
 
 
 
+
+# CORS
+frontend_origin = os.environ.get("FRONTEND_ORIGIN", "").strip().rstrip("/")
+
+allowed_origins = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:8000",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+    "http://127.0.0.1:8000",
+]
+
+if frontend_origin:
+    allowed_origins.append(frontend_origin)
+
 CORS(
-
-
-
     app,
-
-
-
     supports_credentials=True,
-
-
-
-    origins=[
-
-
-
-        "http://localhost:3000",
-
-
-
-        "http://localhost:3001",
-
-
-
-        "http://localhost:8000",
-
-
-
-        "http://127.0.0.1:3000",
-
-
-
-        "http://127.0.0.1:3001",
-
-
-
-        "http://127.0.0.1:8000",
-
-
-
-    ],
-
-
-
+    origins=allowed_origins,
 )
+
 
 
 
